@@ -1,5 +1,16 @@
 
 
+## [2.0.5](https://github.com/wizbii/strapi-algolia/compare/v2.0.4...v2.0.5) (2025-07-14)
+
+
+### Features
+
+ - add locale support - silently skip objects with null objectID
+
+### Bug Fixes
+
+ - duplication on draft updates - use documentId for algolia objectID
+
 ## [2.0.4](https://github.com/wizbii/strapi-algolia/compare/v2.0.3...v2.0.4) (2025-04-04)
 
 ## [2.0.3](https://github.com/wizbii/strapi-algolia/compare/v2.0.2...v2.0.3) (2025-03-26)
