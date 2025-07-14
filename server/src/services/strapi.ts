@@ -59,6 +59,10 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
 
     for (const event of events) {
       try {
+        if (! event.result?.publishedAt) {
+          // event trigger by draft updates
+          continue;
+        }
         const entryId = `${idPrefix}${utilsService.getEntryId(
           event
         )}`;
@@ -69,8 +73,12 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
         );
 
         if (strapiObject.publishedAt === null) {
+          // Unreachable code! 
+          // `getStrapiObject` returns only the published entry or throws an error
           objectsIdsToDelete.push(entryId);
-        } else {
+        } else if (event.result?.id !== strapiObject.id) {
+          // Ensuring `event.result` is NOT a draft or in another language,
+          // given that `strapiObject` is the published entry (of the primary language)
           objectsToSave.push(
             utilsService.filterProperties(
               {
