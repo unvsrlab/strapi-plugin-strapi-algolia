@@ -67,7 +67,7 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
               contentType.name
             );
           },
-          afterDelete: async (event) => {
+          beforeDelete: async (event) => {
             await strapiService.afterDeleteOneOrMany(
               event,
               idPrefix,
@@ -76,7 +76,7 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
               false
             );
           },
-          afterDeleteMany: async (event) => {
+          beforeDeleteMany: async (event) => {
             await strapiService.afterDeleteOneOrMany(
               event,
               idPrefix,

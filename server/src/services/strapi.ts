@@ -59,7 +59,7 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
 
     for (const event of events) {
       try {
-        const entryId = `${idPrefix}${utilsService.getEntryId(
+        const entryId = `${idPrefix}${getDocId(
           event
         )}`;
         const strapiObject = await strapiService.getStrapiObject(
@@ -119,7 +119,7 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
 
     for (const article of articles) {
       try {
-        const entryId = article.id;
+        const entryId = article.documentId ?? article.id;
         const entryIdWithPrefix = `${idPrefix}${entryId}`;
 
         if (article.publishedAt === null) {
@@ -163,12 +163,15 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
   ) => {
     try {
       const event = _event as HookEvent;
-      const strapiIds = many
-        ? event?.params?.where?.['$and'][0]?.id['$in']
-        : [event.params.where.id];
-      const objectIDs = strapiIds.map(
-        (id: string) => `${idPrefix}${id}`
-      );
+      // https://github.com/strapi/strapi/blob/0b05e14275f66f3bce0f2d93875c657c322c1d20/packages/core/database/src/entity-manager/index.ts#L491
+      const { params, model } = event;
+      const entries = await strapi.db.query(model.uid).findMany({
+        where: params.where,
+        populate: ['documentId'],
+      });
+      const objectIDs = entries.map(
+        ({documentId}) => `${idPrefix}${documentId}`
+      )
 
       await algoliaClient.deleteObjects({ indexName, objectIDs });
     } catch (error) {
@@ -178,3 +181,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
     }
   },
 });
+
+function getDocId(event: HookEvent) {
+  // https://docs.strapi.io/cms/backend-customization/models#hook-event-object
+  return event.result.documentId;
+}
