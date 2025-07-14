@@ -19,9 +19,10 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
     if (!entryId) {
       throw new Error(`No entry id found in event.`);
     }
-
+    const { documentId, locale } = event.result;
     const strapiObject = await strapi.documents(modelUid).findOne({
-      documentId: event.result.documentId,
+      documentId,
+      locale: typeof locale === "string" && locale.length > 0 ? locale : undefined,
       // the documentId can have a published & unpublished version associated
       // without a status filter, the unpublished version could be returned even if a published on exists,
       // which would incorrectly de-index.
@@ -55,30 +56,26 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
 
     const objectsToSave: any[] = [];
     const objectsIdsToDelete: string[] = [];
+    // Event content
+    //  - https://github.com/strapi/strapi/blob/241fdb42ee4717520b69195ace47990e46fa4adf/packages/core/database/src/entity-manager/index.ts#L314C1-L321C79
+    //  - https://github.com/strapi/strapi/blob/241fdb42ee4717520b69195ace47990e46fa4adf/packages/core/database/src/entity-manager/index.ts#L402C1-L409C79
     const events = _events as HookEvent[];
 
     for (const event of events) {
       try {
         if (! event.result?.publishedAt) {
-          // event trigger by draft updates
+          // event triggered by draft updates
           continue;
         }
-        const entryId = `${idPrefix}${getDocId(
-          event
-        )}`;
+        const entryId = `${idPrefix}${getDocId(event.result)}`;
         const strapiObject = await strapiService.getStrapiObject(
           event,
           populate,
           []
         );
 
-        if (strapiObject.publishedAt === null) {
-          // Unreachable code! 
-          // `getStrapiObject` returns only the published entry or throws an error
-          objectsIdsToDelete.push(entryId);
-        } else if (event.result?.id !== strapiObject.id) {
-          // Ensuring `event.result` is NOT a draft or in another language,
-          // given that `strapiObject` is the published entry (of the primary language)
+        if (event.result?.id === strapiObject.id) {
+          // double check the query result
           objectsToSave.push(
             utilsService.filterProperties(
               {
@@ -127,7 +124,7 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
 
     for (const article of articles) {
       try {
-        const entryId = article.documentId ?? article.id;
+        const entryId = getDocId(article);
         const entryIdWithPrefix = `${idPrefix}${entryId}`;
 
         if (article.publishedAt === null) {
@@ -175,10 +172,10 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
       const { params, model } = event;
       const entries = await strapi.db.query(model.uid).findMany({
         where: params.where,
-        populate: ['documentId'],
+        populate: ['documentId', 'id', 'locale'],
       });
       const objectIDs = entries.map(
-        ({documentId}) => `${idPrefix}${documentId}`
+        (article) => `${idPrefix}${getDocId(article)}`
       )
 
       await algoliaClient.deleteObjects({ indexName, objectIDs });
@@ -190,7 +187,8 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
   },
 });
 
-function getDocId(event: HookEvent) {
+function getDocId({ documentId, locale, id }) {
   // https://docs.strapi.io/cms/backend-customization/models#hook-event-object
-  return event.result.documentId;
+  if(!documentId) throw new Error(`documentId is null for database entry ${id}`);
+  return `${documentId}-${locale ?? 'default'}`;
 }
