@@ -37,7 +37,7 @@ export default ({ strapi }: { strapi: Core.Strapi }) => ({
       for (const chunk of chunkedObjectsToSave) {
         const cleanedChunk = chunk.map((c) =>
           transformNullToBoolean(c, transformToBooleanFields)
-        );
+        ).filter((c)=>1 && c.objectID);
         cleanedChunk.forEach((x) => delete x._strapiContentType);
         await algoliaClient.saveObjects({
           indexName,
